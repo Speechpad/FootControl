@@ -19,9 +19,10 @@ Instructions TBD
 
 The script should support industry standard Foot Control devices.
 
-The following devices are confirmed working:
+The following systems are confirmed working:
 
 - Infiniti Foot Control - IN-USB-1
 - Infiniti Foot Control - IN-USB-2
+- Start-Stop® UNIVERSAL Transcription System
 
 Please contact us at worker@speechpad.com if you have another model that you confirm works.
