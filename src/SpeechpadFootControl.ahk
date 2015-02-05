@@ -4,7 +4,14 @@
 ; Global Variables
 ; -------------------------------------------
 
-FootPedalBindingsPath = %A_ScriptDir%\SpeechpadFootPedalBindings.txt
+AppName := "Speechpad Foot Control"
+Version := "0.2.0"
+VersionUrl := "https://raw.githubusercontent.com/Speechpad/FootControl/master/version.txt"
+DownloadUrl := "https://github.com/Speechpad/FootControl"
+
+;TempDir = %A_Temp%\SpeechpadFootControl%A_Now%
+TempDir = %A_Temp%\SpeechpadFootControl
+FootPedalBindingsPath = %A_ScriptDir%\SpeechpadFootControlBindings.txt
 
 LeftPedalPressed := 0
 CenterPedalPressed := 0
@@ -24,6 +31,15 @@ RightUpKeyBinding := "!6"
 ; Initialization
 ; -------------------------------------------
 
+; Set up menus
+
+Menu, Tray, NoStandard ; remove standard Menu items
+Menu, Tray, Add , &About, MenuCmdAbout
+Menu, Tray, Add , &Suspend, MenuCmdSuspend
+Menu, Tray, Add , E&xit, MenuCmdExit
+
+; Load bindings file
+
 IfExist, %FootPedalBindingsPath%
 {
      LoadPedalKeyBindings()
@@ -33,10 +49,69 @@ else
      WritePedalKeyBindings()
 }
 
+; Set up device hook
+
 OnMessage(0x00FF, "InputMessage")
 RegisterHIDDevice(12, 3) ; Register Foot Pedal
 
+
+; Check for newer version
+
+FileCreateDir %TempDir%
+
+; Retrieve latest version number.
+URLDownloadToFile %VersionUrl%, %TempDir%\version.txt
+FileRead latestVersion, %TempDir%\version.txt
+
+StringSplit, latest_version_array, latestVersion, .
+StringSplit, this_version_array, Version, .
+this_numeric_version := this_version_array1 * 100 * 100 + this_version_array2 * 100 + this_version_array3
+latest_numeric_version := latest_version_array1 * 100 * 100 + latest_version_array2 * 100 + latest_version_array3
+;latest_numeric_version := 0 * 100 * 100 + 1 * 100 + 0
+
+if ( this_numeric_version < latest_numeric_version )
+{
+     msgText := "A newer version of the Speechpad Foot Controller app is available.`n`nThis Version: " Version "`nLatest Version: " latestVersion "`n`nDownload newer version?"
+     MsgBox 4, "Newer Version Available", %msgText%
+     IfMsgBox Yes
+          Run %DownloadUrl%
+}
+;MsgBox latest_numeric_version is %latest_numeric_version%
+
 Return
+
+; -------------------------------------------
+; Menu Handlers
+; -------------------------------------------
+
+MenuCmdAbout:
+MsgBox 0, About %AppName%, %AppName% `nVersion %Version%
+Return
+
+MenuCmdSuspend:
+Suspend Toggle
+Menu Tray, ToggleCheck, &Suspend
+
+if (A_IsSuspended) 
+{
+     if (A_IsCompiled)
+     {
+          Menu Tray, Icon,  %A_ScriptFullPath%, 5, 1
+     }
+}
+Else 
+{
+     if (A_IsCompiled)
+     {
+          Menu, Tray, Icon , %A_ScriptFullPath%, 1, 1
+     }
+}
+
+Return 
+
+
+MenuCmdExit:
+ExitApp
 
 ; -------------------------------------------
 ; Functions
