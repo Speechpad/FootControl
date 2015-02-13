@@ -376,7 +376,7 @@ InputMessage(wParam, lParam, msg, hwnd)
 
      DllCall("GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", 0, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
      VarSetCapacity(Buffer, Size)
-     DllCall("ComCtl32.dll\GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", &Buffer, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
+     DllCall("GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", &Buffer, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
      DeviceType := NumGet(Buffer, 0 * 4, "UInt")
      Size := NumGet(Buffer, 1 * 4, "UInt")
      FootPedalDeviceHandle := NumGet(Buffer, 2 * 4, "UPtr")
@@ -386,7 +386,7 @@ InputMessage(wParam, lParam, msg, hwnd)
      VarSetCapacity(Info, SizeofRidDeviceInfo) 
      NumPut(SizeofRidDeviceInfo, Info, 0)
      
-     DllCall("ComCtl32.dll\GetRawInputDeviceInfo", "Ptr", FootPedalDeviceHandle, "UInt", RIDI_DEVICEINFO, "Ptr", &Info, "UIntP", SizeofRidDeviceInfo)
+     DllCall("GetRawInputDeviceInfo", "Ptr", FootPedalDeviceHandle, "UInt", RIDI_DEVICEINFO, "Ptr", &Info, "UIntP", SizeofRidDeviceInfo)
      VenderID := NumGet(Info, 4 * 2, "UInt")
      Product := NumGet(Info, 4 * 3, "UInt")
      ;tooltip %VenderID% %Product%
@@ -419,16 +419,16 @@ NewInputMessage(wParam, lParam, msg, hwnd)
    SizeOfHeader := 8 + A_PtrSize + A_PtrSize 
    SizeofRidDeviceInfo := 32
    RIDI_DEVICEINFO := 0x2000000b
-   DllCall("ComCtl32.dll\GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", 0, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
+   DllCall("GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", 0, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
    VarSetCapacity(Buffer, Size)
-   DllCall("ComCtl32.dll\GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", &Buffer, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
+   DllCall("GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", &Buffer, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
    Type := NumGet(Buffer, 0 * 4, "UInt")
    Size := NumGet(Buffer, 1 * 4, "UInt")
    Handle := NumGet(Buffer, 2 * 4, "UPtr")
    VarSetCapacity(Info, SizeofRidDeviceInfo) 
    NumPut(SizeofRidDeviceInfo, Info, 0)
    Length := SizeofRidDeviceInfo
-   DllCall("ComCtl32.dll\GetRawInputDeviceInfo", "Ptr", Handle, "UInt", RIDI_DEVICEINFO, "Ptr", &Info, "UIntP", SizeofRidDeviceInfo)
+   DllCall("GetRawInputDeviceInfo", "Ptr", Handle, "UInt", RIDI_DEVICEINFO, "Ptr", &Info, "UIntP", SizeofRidDeviceInfo)
    VenderID := NumGet(Info, 4 * 2, "UInt")
    Product := NumGet(Info, 4 * 3, "UInt")
    ;   tooltip %VenderID% %Product%
