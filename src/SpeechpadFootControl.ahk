@@ -1,3 +1,18 @@
+/*
+ * * * Compile_AHK SETTINGS BEGIN * * *
+
+[AHK2EXE]
+Exe_File=C:\GDrive\SpeechInk\Dev\Speechpad Foot Control\SpeechpadFootControl.exe
+Alt_Bin=C:\Program Files (x86)\AutoHotkey\Compiler\Unicode 32-bit.bin
+Compression=0
+[ICONS]
+Icon_1=%In_Dir%\speechpad_icon.ico
+Icon_2=%In_Dir%\speechpad_icon.ico
+Icon_3=%In_Dir%\speechpad_icon_disabled.ico
+
+* * * Compile_AHK SETTINGS END * * *
+*/
+
 #Persistent
 
 ; -------------------------------------------
@@ -5,13 +20,15 @@
 ; -------------------------------------------
 
 AppName := "Speechpad Foot Control"
-Version := "0.2.0"
+Version := "0.3.0"
 VersionUrl := "https://raw.githubusercontent.com/Speechpad/FootControl/master/version.txt"
 DownloadUrl := "https://github.com/Speechpad/FootControl"
 
 ;TempDir = %A_Temp%\SpeechpadFootControl%A_Now%
 TempDir = %A_Temp%\SpeechpadFootControl
 FootPedalBindingsPath = %A_ScriptDir%\SpeechpadFootControlBindings.txt
+
+SystemID := "Unknown"
 
 LeftPedalPressed := 0
 CenterPedalPressed := 0
@@ -31,14 +48,16 @@ RightUpKeyBinding := "!6"
 ; Initialization
 ; -------------------------------------------
 
-; Set up menus
+; Set up Windows tray menus
 
 Menu, Tray, NoStandard ; remove standard Menu items
 Menu, Tray, Add , &About, MenuCmdAbout
 Menu, Tray, Add , &Suspend, MenuCmdSuspend
 Menu, Tray, Add , E&xit, MenuCmdExit
 
-; Load bindings file
+Menu, Tray, Tip, %AppName%
+
+; Load bindings file. Populates pedal binding globals and SystemID global
 
 IfExist, %FootPedalBindingsPath%
 {
@@ -48,6 +67,9 @@ else
 {
      WritePedalKeyBindings()
 }
+
+MsgBox System ID: %SystemID%
+ToolTip System ID: %SystemID%
 
 ; Set up device hook
 
@@ -94,16 +116,20 @@ Menu Tray, ToggleCheck, &Suspend
 
 if (A_IsSuspended) 
 {
+     Menu, Tray, Tip, %AppName% (Suspended)
+     
      if (A_IsCompiled)
      {
-          Menu Tray, Icon,  %A_ScriptFullPath%, 5, 1
+          ;Menu Tray, Icon,  %A_ScriptFullPath%, 5, 1
      }
 }
 Else 
 {
+     Menu, Tray, Tip, %AppName%
+     
      if (A_IsCompiled)
      {
-          Menu, Tray, Icon , %A_ScriptFullPath%, 1, 1
+          ;Menu, Tray, Icon , %A_ScriptFullPath%, 1, 1
      }
 }
 
@@ -119,6 +145,7 @@ ExitApp
 
 WritePedalKeyBindings()
 {
+     global SystemID
      global FootPedalBindingsPath
      global LeftDownKeyBinding
      global LeftUpKeyBinding
@@ -126,6 +153,9 @@ WritePedalKeyBindings()
      global CenterUpKeyBinding
      global RightDownKeyBinding
      global RightUpKeyBinding
+
+     SystemID := GetUniqueSystemID()
+     IniWrite %SystemID%, %FootPedalBindingsPath%, SystemInfo, SystemID
 
      IniWrite %LeftDownKeyBinding%, %FootPedalBindingsPath%, KeyBindings, LeftDown
      IniWrite %LeftUpKeyBinding%, %FootPedalBindingsPath%, KeyBindings, LeftUp
@@ -137,6 +167,7 @@ WritePedalKeyBindings()
 
 LoadPedalKeyBindings()
 {
+     global SystemID
      global FootPedalBindingsPath
      global LeftDownKeyBinding
      global LeftUpKeyBinding
@@ -144,6 +175,15 @@ LoadPedalKeyBindings()
      global CenterUpKeyBinding
      global RightDownKeyBinding
      global RightUpKeyBinding
+
+     IniRead SystemID, %FootPedalBindingsPath%, SystemInfo, SystemID, Unknown
+     if ( SystemID = "Unknown" )
+     {
+          ; If we get here, a prior version of the pedal bindings file did not include
+          ; the SystemID variable. Generate it here and write it back to the file.
+          SystemID := GetUniqueSystemID()
+          IniWrite %SystemID%, %FootPedalBindingsPath%, SystemInfo, SystemID
+     }
 
      IniRead LeftDownKeyBinding, %FootPedalBindingsPath%, KeyBindings, LeftDown, %LeftDownKeyBinding%
      IniRead LeftUpKeyBinding, %FootPedalBindingsPath%, KeyBindings, LeftUp, %LeftUpKeyBinding%
@@ -233,7 +273,7 @@ PressKey(bits)
      global RightDownKeyBinding
 
      ; ToolTip Pressing %bits%
-     ;ShowPedalState()
+     ShowPedalState()
      
      If (bits & 1) ; left pedal
      {
@@ -262,7 +302,7 @@ ReleaseKey(bits)
      global RightUpKeyBinding
      
      ; ToolTip Releasing %bits%
-     ;ShowPedalState()
+     ShowPedalState()
      
      If (bits & 1)
      {
@@ -318,8 +358,9 @@ RegisterHIDDevice(UsagePage,Usage)
      NumPut(HWND, RawDevice, 8)
      
      Res := DllCall("RegisterRawInputDevices", "UInt", &RawDevice, UInt, 1, UInt, 12)
-     if (Res = 0)
-          MsgBox, Failed to register for HID Device
+     MsgBox DllCall RegisterRawInputDevices result: %Res%
+     if (Res = "")
+          MsgBox, Could not detect foot control.`nPlease ensure it is connected and drivers are properly installed.
 }  
 
 InputMessage(wParam, lParam, msg, hwnd)
@@ -335,7 +376,7 @@ InputMessage(wParam, lParam, msg, hwnd)
 
      DllCall("GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", 0, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
      VarSetCapacity(Buffer, Size)
-     DllCall("GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", &Buffer, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
+     DllCall("ComCtl32.dll\GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", &Buffer, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
      DeviceType := NumGet(Buffer, 0 * 4, "UInt")
      Size := NumGet(Buffer, 1 * 4, "UInt")
      FootPedalDeviceHandle := NumGet(Buffer, 2 * 4, "UPtr")
@@ -345,7 +386,7 @@ InputMessage(wParam, lParam, msg, hwnd)
      VarSetCapacity(Info, SizeofRidDeviceInfo) 
      NumPut(SizeofRidDeviceInfo, Info, 0)
      
-     DllCall("GetRawInputDeviceInfo", "Ptr", FootPedalDeviceHandle, "UInt", RIDI_DEVICEINFO, "Ptr", &Info, "UIntP", SizeofRidDeviceInfo)
+     DllCall("ComCtl32.dll\GetRawInputDeviceInfo", "Ptr", FootPedalDeviceHandle, "UInt", RIDI_DEVICEINFO, "Ptr", &Info, "UIntP", SizeofRidDeviceInfo)
      VenderID := NumGet(Info, 4 * 2, "UInt")
      Product := NumGet(Info, 4 * 3, "UInt")
      ;tooltip %VenderID% %Product%
@@ -378,16 +419,16 @@ NewInputMessage(wParam, lParam, msg, hwnd)
    SizeOfHeader := 8 + A_PtrSize + A_PtrSize 
    SizeofRidDeviceInfo := 32
    RIDI_DEVICEINFO := 0x2000000b
-   DllCall("GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", 0, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
+   DllCall("ComCtl32.dll\GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", 0, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
    VarSetCapacity(Buffer, Size)
-   DllCall("GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", &Buffer, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
+   DllCall("ComCtl32.dll\GetRawInputData", "Ptr", lParam, "UInt", RID_INPUT, "Ptr", &Buffer, "UIntP", Size, "UInt", SizeOfHeader, "UInt")
    Type := NumGet(Buffer, 0 * 4, "UInt")
    Size := NumGet(Buffer, 1 * 4, "UInt")
    Handle := NumGet(Buffer, 2 * 4, "UPtr")
    VarSetCapacity(Info, SizeofRidDeviceInfo) 
    NumPut(SizeofRidDeviceInfo, Info, 0)
    Length := SizeofRidDeviceInfo
-   DllCall("GetRawInputDeviceInfo", "Ptr", Handle, "UInt", RIDI_DEVICEINFO, "Ptr", &Info, "UIntP", SizeofRidDeviceInfo)
+   DllCall("ComCtl32.dll\GetRawInputDeviceInfo", "Ptr", Handle, "UInt", RIDI_DEVICEINFO, "Ptr", &Info, "UIntP", SizeofRidDeviceInfo)
    VenderID := NumGet(Info, 4 * 2, "UInt")
    Product := NumGet(Info, 4 * 3, "UInt")
    ;   tooltip %VenderID% %Product%
@@ -409,4 +450,21 @@ NewInputMessage(wParam, lParam, msg, hwnd)
          }
       }
    }
+}
+
+
+GetMacAddress(){
+    tempfile = %A_Temp%\mac.txt
+    RunWait, %ComSpec% /c getmac /NH > %tempfile%, , Hide ; ipconfig (slow)
+    FileRead, thetext, %tempfile%
+    RegExMatch(thetext, ".*?([0-9A-Z].{16})(?!\w\\Device)", mac)
+    ;MsgBox, %mac1%
+    return %mac1%
+}
+
+GetUniqueSystemID(){
+    macAddress := GetMacAddress()
+    systemID = %A_ComputerName%__%A_OSType%__%A_OSVersion%__%macAddress%
+    ;MsgBox, %systemID%
+    return %systemID%
 }
