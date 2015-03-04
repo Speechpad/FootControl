@@ -23,9 +23,9 @@ Icon_3=%In_Dir%\speechpad_icon_disabled.ico
 AppName := "Speechpad Foot Control"
 Version := "0.3.0"
 RawContentBaseUrl := "https://raw.githubusercontent.com/Speechpad/FootControl/master"
-VersionUrl = %RawContentBaseUrl%\version.txt
-EnabledIconUrl = %RawContentBaseUrl%\src/speechpad_icon.ico
-DisabledIconUrl = %RawContentBaseUrl%/src/speechpad_icon_disabled.ico
+VersionUrl = %RawContentBaseUrl%/version.txt
+EnabledIconUrl = %RawContentBaseUrl%/icons/speechpad_icon.ico
+DisabledIconUrl = %RawContentBaseUrl%/icons/speechpad_icon_disabled.ico
 DownloadUrl := "https://github.com/Speechpad/FootControl"
 
 ;TempDir = %A_Temp%\SpeechpadFootControl%A_Now%
@@ -86,7 +86,28 @@ RegisterHIDDevice(12, 3) ; Register Foot Pedal
 IfNotExist, %EnabledIconPath%
 {
      URLDownloadToFile %EnabledIconUrl%, %EnabledIconPath%
+     if ErrorLevel
+     {
+          FileDelete %EnabledIconPath%
+     }
+     else
+     {
+          FileRead DownloadedContents, %EnabledIconPath%
+          IfInString, DownloadedContents, Not Found
+               FileDelete %EnabledIconPath%
+     }
+
      URLDownloadToFile %DisabledIconUrl%, %DisabledIconPath%
+     if ErrorLevel
+     {
+          FileDelete %DisabledIconPath%
+     }
+     else
+     {
+          FileRead DownloadedContents, %DisabledIconPath%
+          IfInString, DownloadedContents, Not Found
+               FileDelete %DisabledIconPath%
+     }
 }
 
 ; Change the tray icon to use the downloaded one
