@@ -1,8 +1,8 @@
-SpeechpadFootControlBindings.txt
-speechpad_icon.ico
-speechpad_icon_disabled.ico
+SpeechpadFootControl.ini
 SpeechpadFootControl.ahk.bak
 ResHacker.lnk
 desktop.ini
-icons/desktop.ini
+src/speechpad_icon.ico
+src/speechpad_icon_disabled.ico
+src/icons/desktop.ini
 

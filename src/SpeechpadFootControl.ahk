@@ -6,9 +6,9 @@ Exe_File=C:\GDrive\SpeechInk\Dev\Speechpad Foot Control\SpeechpadFootControl.exe
 Alt_Bin=C:\Program Files (x86)\AutoHotkey\Compiler\Unicode 32-bit.bin
 Compression=0
 [ICONS]
-Icon_1=%In_Dir%\speechpad_icon.ico
-Icon_2=%In_Dir%\speechpad_icon.ico
-Icon_3=%In_Dir%\speechpad_icon_disabled.ico
+Icon_1=%In_Dir%\icons\speechpad_icon.ico
+Icon_2=%In_Dir%\icons\speechpad_icon.ico
+Icon_3=%In_Dir%\icons\speechpad_icon_disabled.ico
 
 * * * Compile_AHK SETTINGS END * * *
 */
@@ -21,7 +21,10 @@ Icon_3=%In_Dir%\speechpad_icon_disabled.ico
 ; -------------------------------------------
 
 AppName := "Speechpad Foot Control"
-Version := "0.3.0"
+Version := "0.4.0"
+OSInfo := A_Is64bitOS ? A_OSVersion . "_64" : A_OSVersion . "_32" 
+
+SpeechpadBaseUrl := "https://www.speechpad.com/app_usage/log_foot_control"
 RawContentBaseUrl := "https://raw.githubusercontent.com/Speechpad/FootControl/master"
 VersionUrl = %RawContentBaseUrl%/version.txt
 EnabledIconUrl = %RawContentBaseUrl%/icons/speechpad_icon.ico
@@ -30,11 +33,12 @@ DownloadUrl := "https://github.com/Speechpad/FootControl"
 
 ;TempDir = %A_Temp%\SpeechpadFootControl%A_Now%
 TempDir = %A_Temp%\SpeechpadFootControl
-FootPedalBindingsPath = %A_ScriptDir%\SpeechpadFootControlBindings.txt
+IniFile = %A_ScriptDir%\SpeechpadFootControl.ini
 EnabledIconPath = %A_ScriptDir%\speechpad_icon.ico
 DisabledIconPath = %A_ScriptDir%\speechpad_icon_disabled.ico
 
-SystemID := "Unknown"
+InstanceUUID := "Unknown"
+UsageDates := []
 
 LeftPedalPressed := 0
 CenterPedalPressed := 0
@@ -63,28 +67,150 @@ Menu, Tray, Add , E&xit, MenuCmdExit
 
 Menu, Tray, Tip, %AppName%
 
-; Load bindings file. Populates pedal binding globals and SystemID global
+; Load ini file. Populates pedal binding globals and other app info
 
-IfExist, %FootPedalBindingsPath%
+IfExist, %IniFile%
 {
-     LoadPedalKeyBindings()
+     LoadIniFile()
 }
 else
 {
-     WritePedalKeyBindings()
+     WriteIniFile()
 }
 
-;MsgBox System ID: %SystemID%
-;ToolTip System ID: %SystemID%
+;MsgBox InstanceUUID: %InstanceUUID%
 
 ; Set up device hook
 
 OnMessage(0x00FF, "InputMessage")
 RegisterHIDDevice(12, 3) ; Register Foot Pedal
 
-; Retrieve icon files if necessary
-IfNotExist, %EnabledIconPath%
+if (not A_IsCompiled)
 {
+     ; Retrieve icon files if necessary
+     IfNotExist, %EnabledIconPath%
+     {
+          DownloadIcons()
+     }
+     
+     ; Change the tray icon to use the downloaded one
+     Menu, Tray, Icon, %EnabledIconPath%, 1, 1
+}
+else
+{
+     ;Menu, Tray, Icon , %A_ScriptFullPath%, 1, 1
+}
+
+CheckInWithServer("startup")
+
+Return
+
+; -------------------------------------------
+; Menu Handlers
+; -------------------------------------------
+
+MenuCmdAbout:
+MsgBox 0, About %AppName%, %AppName% `n`nVersion %Version%`nInstance ID: %InstanceUUID%`nOS: %OSInfo%
+Return
+
+MenuCmdSuspend:
+Suspend Toggle
+Menu Tray, ToggleCheck, &Suspend
+
+if (A_IsSuspended) 
+{
+     Menu, Tray, Tip, %AppName% (Suspended)
+     ;Menu, Tray, Icon, %DisabledIconPath%, 1, 1
+     
+     if (A_IsCompiled)
+     {
+          ;Menu Tray, Icon,  %A_ScriptFullPath%, 5, 1
+     }
+     else
+     {
+          Menu, Tray, Icon, %DisabledIconPath%, 1, 1
+     }
+}
+Else 
+{
+     Menu, Tray, Tip, %AppName%
+     
+     if (A_IsCompiled)
+     {
+          ;Menu, Tray, Icon , %A_ScriptFullPath%, 1, 1
+     }
+     else
+     {
+          Menu, Tray, Icon, %EnabledIconPath%, 1, 1
+     }
+}
+     
+Return 
+
+
+MenuCmdExit:
+ExitApp
+
+; -------------------------------------------
+; Functions
+; -------------------------------------------
+
+CheckInWithServer(event)
+{
+     global SpeechpadBaseUrl
+     global TempDir
+     global Version
+     global OSInfo
+     global InstanceUUID
+     global UsageDates
+     global VersionUrl
+     global DownloadUrl
+
+; Check in with Speechpad server
+FileCreateDir %TempDir%
+
+checkInUrl := SpeechpadBaseUrl . "?version=" . Version . "&operating_system=" . OSInfo . "&instance_uuid=" . InstanceUUID . "&event=" event
+usageDatesStr := "[" . st_glue(UsageDates, ",", """") . "]"
+checkInUrl .= "&usage_statistics=" . usageDatesStr
+Clipboard := checkInUrl
+
+URLDownloadToFile %checkInUrl%, %TempDir%\checkInResponse.txt
+FileRead checkInResponse, %TempDir%\checkInResponse.txt
+
+; To-Do: Parse JSON results from server
+
+
+; Retrieve latest version number.
+; To-Do: Update this code when Speechpad server starts returning results
+
+URLDownloadToFile %VersionUrl%, %TempDir%\version.txt
+FileRead latestVersion, %TempDir%\version.txt
+
+StringSplit, latest_version_array, latestVersion, .
+StringSplit, this_version_array, Version, .
+this_numeric_version := this_version_array1 * 100 * 100 + this_version_array2 * 100 + this_version_array3
+latest_numeric_version := latest_version_array1 * 100 * 100 + latest_version_array2 * 100 + latest_version_array3
+;latest_numeric_version := 0 * 100 * 100 + 1 * 100 + 0
+
+if ( this_numeric_version < latest_numeric_version )
+{
+     msgText := "A newer version of the Speechpad Foot Controller app is available.`n`nThis Version: " Version "`nLatest Version: " latestVersion "`n`nDownload newer version?"
+     MsgBox 4, "Newer Version Available", %msgText%
+     IfMsgBox Yes
+          Run %DownloadUrl%
+}
+;MsgBox latest_numeric_version is %latest_numeric_version%
+
+}
+
+
+DownloadIcons()
+{
+     global EnabledIconUrl
+     global EnabledIconPath
+     global DisabledIconUrl
+     global DisabledIconPath
+     
      URLDownloadToFile %EnabledIconUrl%, %EnabledIconPath%
      if ErrorLevel
      {
@@ -110,82 +236,10 @@ IfNotExist, %EnabledIconPath%
      }
 }
 
-; Change the tray icon to use the downloaded one
-Menu, Tray, Icon, %EnabledIconPath%, 1, 1
-
-; Check for newer version
-
-FileCreateDir %TempDir%
-
-; Retrieve latest version number.
-URLDownloadToFile %VersionUrl%, %TempDir%\version.txt
-FileRead latestVersion, %TempDir%\version.txt
-
-StringSplit, latest_version_array, latestVersion, .
-StringSplit, this_version_array, Version, .
-this_numeric_version := this_version_array1 * 100 * 100 + this_version_array2 * 100 + this_version_array3
-latest_numeric_version := latest_version_array1 * 100 * 100 + latest_version_array2 * 100 + latest_version_array3
-;latest_numeric_version := 0 * 100 * 100 + 1 * 100 + 0
-
-if ( this_numeric_version < latest_numeric_version )
+WriteIniFile()
 {
-     msgText := "A newer version of the Speechpad Foot Controller app is available.`n`nThis Version: " Version "`nLatest Version: " latestVersion "`n`nDownload newer version?"
-     MsgBox 4, "Newer Version Available", %msgText%
-     IfMsgBox Yes
-          Run %DownloadUrl%
-}
-;MsgBox latest_numeric_version is %latest_numeric_version%
-
-
-Return
-
-; -------------------------------------------
-; Menu Handlers
-; -------------------------------------------
-
-MenuCmdAbout:
-MsgBox 0, About %AppName%, %AppName% `nVersion %Version%
-Return
-
-MenuCmdSuspend:
-Suspend Toggle
-Menu Tray, ToggleCheck, &Suspend
-
-if (A_IsSuspended) 
-{
-     Menu, Tray, Tip, %AppName% (Suspended)
-     Menu, Tray, Icon, %DisabledIconPath%, 1, 1
-     
-     if (A_IsCompiled)
-     {
-          ;Menu Tray, Icon,  %A_ScriptFullPath%, 5, 1
-     }
-}
-Else 
-{
-     Menu, Tray, Tip, %AppName%
-     Menu, Tray, Icon, %EnabledIconPath%, 1, 1
-     
-     if (A_IsCompiled)
-     {
-          ;Menu, Tray, Icon , %A_ScriptFullPath%, 1, 1
-     }
-}
-
-Return 
-
-
-MenuCmdExit:
-ExitApp
-
-; -------------------------------------------
-; Functions
-; -------------------------------------------
-
-WritePedalKeyBindings()
-{
-     global SystemID
-     global FootPedalBindingsPath
+     global InstanceUUID
+     global IniFile
      global LeftDownKeyBinding
      global LeftUpKeyBinding
      global CenterDownKeyBinding
@@ -193,21 +247,25 @@ WritePedalKeyBindings()
      global RightDownKeyBinding
      global RightUpKeyBinding
 
-     SystemID := GetUniqueSystemID()
-     IniWrite %SystemID%, %FootPedalBindingsPath%, SystemInfo, SystemID
+     if ( InstanceUUID = "Unknown" )
+     {
+          InstanceUUID := CreateUniqueInstanceID()
+     }
+     IniWrite %InstanceUUID%, %IniFile%, SystemInfo, InstanceUUID
 
-     IniWrite %LeftDownKeyBinding%, %FootPedalBindingsPath%, KeyBindings, LeftDown
-     IniWrite %LeftUpKeyBinding%, %FootPedalBindingsPath%, KeyBindings, LeftUp
-     IniWrite %CenterDownKeyBinding%, %FootPedalBindingsPath%, KeyBindings, CenterDown
-     IniWrite %CenterUpKeyBinding%, %FootPedalBindingsPath%, KeyBindings, CenterUp
-     IniWrite %RightDownKeyBinding%, %FootPedalBindingsPath%, KeyBindings, RightDown
-     IniWrite %RightUpKeyBinding%, %FootPedalBindingsPath%, KeyBindings, RightUp
+     IniWrite %LeftDownKeyBinding%, %IniFile%, KeyBindings, LeftDown
+     IniWrite %LeftUpKeyBinding%, %IniFile%, KeyBindings, LeftUp
+     IniWrite %CenterDownKeyBinding%, %IniFile%, KeyBindings, CenterDown
+     IniWrite %CenterUpKeyBinding%, %IniFile%, KeyBindings, CenterUp
+     IniWrite %RightDownKeyBinding%, %IniFile%, KeyBindings, RightDown
+     IniWrite %RightUpKeyBinding%, %IniFile%, KeyBindings, RightUp
 }
 
-LoadPedalKeyBindings()
+LoadIniFile()
 {
-     global SystemID
-     global FootPedalBindingsPath
+     global IniFile
+     global InstanceUUID
+     global UsageDates
      global LeftDownKeyBinding
      global LeftUpKeyBinding
      global CenterDownKeyBinding
@@ -215,21 +273,24 @@ LoadPedalKeyBindings()
      global RightDownKeyBinding
      global RightUpKeyBinding
 
-     IniRead SystemID, %FootPedalBindingsPath%, SystemInfo, SystemID, Unknown
-     if ( SystemID = "Unknown" )
+     IniRead InstanceUUID, %IniFile%, SystemInfo, InstanceUUID, Unknown
+     if ( InstanceUUID = "Unknown" )
      {
           ; If we get here, a prior version of the pedal bindings file did not include
-          ; the SystemID variable. Generate it here and write it back to the file.
-          SystemID := GetUniqueSystemID()
-          IniWrite %SystemID%, %FootPedalBindingsPath%, SystemInfo, SystemID
+          ; the InstanceUUID variable. Generate it here and write it back to the file.
+          InstanceUUID := CreateUniqueInstanceID()
+          IniWrite %InstanceUUID%, %IniFile%, SystemInfo, InstanceUUID
      }
+     
+     IniRead usageDatesStr, %IniFile%, UsageInfo, UsageDates, %A_Space%
+     UsageDates := st_split(usageDatesStr, ",")
 
-     IniRead LeftDownKeyBinding, %FootPedalBindingsPath%, KeyBindings, LeftDown, %LeftDownKeyBinding%
-     IniRead LeftUpKeyBinding, %FootPedalBindingsPath%, KeyBindings, LeftUp, %LeftUpKeyBinding%
-     IniRead CenterDownKeyBinding, %FootPedalBindingsPath%, KeyBindings, CenterDown, %CenterDownKeyBinding%
-     IniRead CenterUpKeyBinding, %FootPedalBindingsPath%, KeyBindings, CenterUp, %CenterUpKeyBinding%
-     IniRead RightDownKeyBinding, %FootPedalBindingsPath%, KeyBindings, RightDown, %RightDownKeyBinding%
-     IniRead RightUpKeyBinding, %FootPedalBindingsPath%, KeyBindings, RightUp, %RightUpKeyBinding%
+     IniRead LeftDownKeyBinding, %IniFile%, KeyBindings, LeftDown, %LeftDownKeyBinding%
+     IniRead LeftUpKeyBinding, %IniFile%, KeyBindings, LeftUp, %LeftUpKeyBinding%
+     IniRead CenterDownKeyBinding, %IniFile%, KeyBindings, CenterDown, %CenterDownKeyBinding%
+     IniRead CenterUpKeyBinding, %IniFile%, KeyBindings, CenterUp, %CenterUpKeyBinding%
+     IniRead RightDownKeyBinding, %IniFile%, KeyBindings, RightDown, %RightDownKeyBinding%
+     IniRead RightUpKeyBinding, %IniFile%, KeyBindings, RightUp, %RightUpKeyBinding%
 }
 
 ShowPedalState()
@@ -238,7 +299,7 @@ ShowPedalState()
      global CenterPedalPressed
      global RightPedalPressed
 
-     ;ToolTip L:%LeftPedalPressed% C:%CenterPedalPressed% R:%RightPedalPressed%
+     ToolTip L:%LeftPedalPressed% C:%CenterPedalPressed% R:%RightPedalPressed%
 }
 
 
@@ -247,6 +308,9 @@ ProcessPedalInput(input)
      global LeftPedalPressed
      global CenterPedalPressed
      global RightPedalPressed
+     global DateOfLastUse
+     
+     UpdateUsageDates()
      
      ; The input are combinations of 1, 2, 4 with 00 appended to the end
      ; indicating which pedals are pressed.
@@ -312,7 +376,7 @@ PressKey(bits)
      global RightDownKeyBinding
 
      ; ToolTip Pressing %bits%
-     ShowPedalState()
+     ;ShowPedalState()
      
      If (bits & 1) ; left pedal
      {
@@ -341,7 +405,7 @@ ReleaseKey(bits)
      global RightUpKeyBinding
      
      ; ToolTip Releasing %bits%
-     ShowPedalState()
+     ;ShowPedalState()
      
      If (bits & 1)
      {
@@ -503,11 +567,75 @@ GetMacAddress(){
 }
 */
 
-GetUniqueSystemID(){
+CreateUniqueInstanceID(){
      TypeLib := ComObjCreate("Scriptlet.TypeLib")
-     NewGUID := TypeLib.Guid
-     ;macAddress := GetMacAddress()
-     systemID = %A_ComputerName%__%A_OSType%__%A_OSVersion%__%NewGUID%
-     ;MsgBox, %systemID%
-     return %systemID%
+     NewGUID := Trim( TypeLib.Guid, "{}" )
+     ;instanceUUID = %A_ComputerName%__%A_OSType%__%A_OSVersion%__%NewGUID%
+     return %NewGUID%
+}
+
+
+UpdateUsageDates()
+{
+     global UsageDates
+     global IniFile
+     
+     FormatTime Today, , yyyy-MM-dd
+     if (UsageDates[1] == Today)
+     {
+          return
+     }
+     
+     Loop 4
+     {
+          UsageDates[6-A_Index] := UsageDates[5-A_Index]
+     }
+     
+     UsageDates[1] := Today
+
+     usageDatesStr := st_glue(UsageDates, ",")
+     IniWrite %usageDatesStr%, %IniFile%, UsageInfo, UsageDates
+     ;MsgBox %usageDatesStr%
+}
+
+
+; -------------------
+; --- Array stuff ---
+; -------------------
+
+/*
+Split
+   Split a string into an array. "Split" one item into many items.
+
+   string  = The text you want to split into pieces.
+   delim   = The character(s) that define where to split.
+   exclude = The character(s) you want to ignore when splitting.
+
+example: st_split("aaa|bbb|ccc")
+output:  array("aaa", "bbb", "ccc")
+*/
+st_split(string, delim="`n", exclude="`r")
+{
+   arr:=[]
+   loop, parse, string, %delim%, %exclude%
+      arr.insert(A_LoopField)
+   return arr
+}
+
+
+/*
+Glue
+   Take an array and turn it into a string. "Glue" many items into one item.
+
+   array = An array that will be turned into a string.
+   delim = This is what separates each item in the newly formed string.
+
+example: st_glue(arr, "|") ; where arr is an array containing: ["aaa", "bbb", "ccc"]
+output:  aaa|bbb|ccc
+*/
+st_glue(array, delim="`n", quoteChar="")
+{
+   for k,v in array
+      new.=quoteChar v quoteChar delim
+   return trim(new, delim)
 }
