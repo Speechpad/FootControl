@@ -172,7 +172,7 @@ FileCreateDir %TempDir%
 checkInUrl := SpeechpadBaseUrl . "?version=" . Version . "&operating_system=" . OSInfo . "&instance_uuid=" . InstanceUUID . "&event=" event
 usageDatesStr := "[" . st_glue(UsageDates, ",", """") . "]"
 checkInUrl .= "&usage_statistics=" . usageDatesStr
-Clipboard := checkInUrl
+;Clipboard := checkInUrl
 
 URLDownloadToFile %checkInUrl%, %TempDir%\checkInResponse.txt
 FileRead checkInResponse, %TempDir%\checkInResponse.txt
@@ -595,6 +595,8 @@ UpdateUsageDates()
 
      usageDatesStr := st_glue(UsageDates, ",")
      IniWrite %usageDatesStr%, %IniFile%, UsageInfo, UsageDates
+     
+     CheckInWithServer("update")
      ;MsgBox %usageDatesStr%
 }
 
