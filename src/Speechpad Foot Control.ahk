@@ -2,7 +2,7 @@
  * * * Compile_AHK SETTINGS BEGIN * * *
 
 [AHK2EXE]
-Exe_File=C:\GDrive\SpeechInk\Dev\Speechpad Foot Control\SpeechpadFootControl.exe
+Exe_File=C:\GDrive\SpeechInk\Dev\Speechpad Foot Control\Speechpad Foot Control.exe
 Alt_Bin=C:\Program Files (x86)\AutoHotkey\Compiler\Unicode 32-bit.bin
 Compression=0
 [ICONS]
@@ -33,7 +33,7 @@ DownloadUrl := "https://github.com/Speechpad/FootControl"
 
 ;TempDir = %A_Temp%\SpeechpadFootControl%A_Now%
 TempDir = %A_Temp%\SpeechpadFootControl
-IniFile = %A_ScriptDir%\SpeechpadFootControl.ini
+IniFile = %A_ScriptDir%\Speechpad Foot Control.ini
 EnabledIconPath = %A_ScriptDir%\speechpad_icon.ico
 DisabledIconPath = %A_ScriptDir%\speechpad_icon_disabled.ico
 
