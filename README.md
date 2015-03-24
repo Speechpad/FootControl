@@ -5,15 +5,11 @@ Provides foot pedal support on Speechpad Transcription and Caption Consoles
 
 ### Windows Users
 
-[Download the Latest Version](https://github.com/Speechpad/FootControl/blob/master/SpeechpadFootControl.exe?raw=true) of the EXE to your preferred location on your hard drive.
+[Download the Latest Version](https://github.com/Speechpad/FootControl/blob/master/Speechpad%20Foot%20Control.exe?raw=true) of the EXE to your preferred location on your hard drive.
 
 Double click the EXE. You will see the Speechpad icon in your system tray.
 
 That's it!
-
-### Mac and Linux Users
-
-Instructions TBD
 
 ##Suported Foot Pedals
 
